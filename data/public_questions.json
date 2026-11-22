@@ -1,0 +1,219 @@
+[
+ {
+  "id": "pub_degree_s101",
+  "kind": "degree only",
+  "request": "I'm S101. Which courses do I still need for my Computer Science major?",
+  "fields": {
+   "student_id": "S101",
+   "degree": true,
+   "courses": [],
+   "registered": []
+  },
+  "expected": {
+   "degree": {
+    "missing": [
+     "CSCI 230",
+     "CSCI 310",
+     "CSCI 330",
+     "CSCI 340"
+    ],
+    "choose_one_done": false
+   },
+   "sections": {}
+  }
+ },
+ {
+  "id": "pub_one_section_s103",
+  "kind": "one course",
+  "request": "Hi, this is S103. Can you find me a spring section of MATH 220?",
+  "fields": {
+   "student_id": "S103",
+   "degree": false,
+   "courses": [
+    "MATH 220"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "MATH 220": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_two_sections_s104",
+  "kind": "two courses that can clash",
+  "request": "I'm S104 and I'd like to take CSCI 310 and ENG 101 in the spring. Which sections can I take together?",
+  "fields": {
+   "student_id": "S104",
+   "degree": false,
+   "courses": [
+    "CSCI 310",
+    "ENG 101"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "CSCI 310": "section",
+    "ENG 101": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_two_sections_s105",
+  "kind": "two courses",
+  "request": "S105 here. Please find me spring sections of MATH 230 and CSCI 210.",
+  "fields": {
+   "student_id": "S105",
+   "degree": false,
+   "courses": [
+    "MATH 230",
+    "CSCI 210"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "MATH 230": "section",
+    "CSCI 210": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_both_s106",
+  "kind": "degree progress and a course",
+  "request": "S106 here. What's left for my CS major, and can I get a spring section of CSCI 320?",
+  "fields": {
+   "student_id": "S106",
+   "degree": true,
+   "courses": [
+    "CSCI 320"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": {
+    "missing": [
+     "CSCI 330",
+     "CSCI 340"
+    ],
+    "choose_one_done": true
+   },
+   "sections": {
+    "CSCI 320": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_both_s101",
+  "kind": "degree progress and two courses",
+  "request": "I'm S101. What do I still need for my major? Also find me sections of MATH 230 and CSCI 340 for spring.",
+  "fields": {
+   "student_id": "S101",
+   "degree": true,
+   "courses": [
+    "MATH 230",
+    "CSCI 340"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": {
+    "missing": [
+     "CSCI 230",
+     "CSCI 310",
+     "CSCI 330",
+     "CSCI 340"
+    ],
+    "choose_one_done": false
+   },
+   "sections": {
+    "MATH 230": "section",
+    "CSCI 340": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_registered_s103",
+  "kind": "a course and a registered section",
+  "request": "I'm S103 and I'm already registered for MATH220-01. Can you find me a section of CSCI 340 that fits?",
+  "fields": {
+   "student_id": "S103",
+   "degree": false,
+   "courses": [
+    "CSCI 340"
+   ],
+   "registered": [
+    "MATH220-01"
+   ]
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "CSCI 340": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_not_eligible_s107",
+  "kind": "a course the student cannot take",
+  "request": "Hello, I'm S107. Can I get a spring section of CSCI 310?",
+  "fields": {
+   "student_id": "S107",
+   "degree": false,
+   "courses": [
+    "CSCI 310"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "CSCI 310": "none"
+   }
+  }
+ },
+ {
+  "id": "pub_no_section_s101",
+  "kind": "courses with no open section",
+  "request": "S101 again. Please find me spring sections of CSCI 330, CSCI 350, and ENG 210.",
+  "fields": {
+   "student_id": "S101",
+   "degree": false,
+   "courses": [
+    "CSCI 330",
+    "CSCI 350",
+    "ENG 210"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "degree": null,
+   "sections": {
+    "CSCI 330": "none",
+    "CSCI 350": "none",
+    "ENG 210": "section"
+   }
+  }
+ },
+ {
+  "id": "pub_no_id",
+  "kind": "no student id",
+  "request": "What do I still need for my CS major? And can you find me a section of CSCI 310?",
+  "fields": {
+   "student_id": null,
+   "degree": true,
+   "courses": [
+    "CSCI 310"
+   ],
+   "registered": []
+  },
+  "expected": {
+   "needs_student_id": true
+  }
+ }
+]
