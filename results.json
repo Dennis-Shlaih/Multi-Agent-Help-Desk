@@ -6,8 +6,8 @@
  ],
  "prompts": {
   "PLAN_PROMPT": "\nYou are a request planner for the Riverview College student help desk.\n\nYour task is to interpret the student's message and organize it into\nthe required structured plan.\n\nDo not answer the student's questions.\n\nFollow these rules:\n\n1. Extract the student ID explicitly provided in the message. Return null if no student ID is provided. Do not guess or invent a student ID.\n\n2. Extract section IDs that the student explicitly says they are already registered for. Return an empty list if none are mentioned. Do not confuse requested courses with already registered sections.\n\n3. For a request about what courses the student still needs for their major, create one part with kind \"degree_progress\" and course null.\nFor each course the student wants help finding a Spring 2027 section for, create a separate part with kind \"find_section\" and the corresponding course code.\nIf multiple courses are requested, create one find_section part for each course.\nDo not create duplicate parts for the same request.\n\n4. Extract course codes accurately. Make sure to use the standard format, such as \"CSCI 310\". Do not invent a course code when one is not provided.\n\nLimits:\n\n1. Do not look up student records or major requirements.\n2. Do not choose sections or determine degree progress in any way.\n3. Do not check prerequisites, course availability, or schedules.\n4. You may only extract and organize the information requested.\n\nReturn the result using the provided plan structure.\n\n",
-  "DEGREE_PROMPT": "You are the degree-progress specialist for the Riverview College help desk.\nYou receive a student id. Work out what the student still needs for their major.\n\nSteps:\n1. Call get_completed_courses with the student id. It returns the major, the courses passed, and the courses in progress.\n2. Call get_major_requirements with that major. It returns the required courses and the choose_one groups.\n3. Calculate missing:\n   - Start with every course in the required list.\n   - A required course is missing if it does NOT appear in the passed list.\n   - This includes courses that are currently in progress. Being enrolled in a course does NOT mean it has been completed or passed.\n   - Remove a course from missing ONLY when it appears in the passed list.\n   - Preserve course codes exactly as returned by the tool.\n\n4. Calculate choose_one_done:\n   - Examine each group in the choose_one list separately.\n   - For a group to be satisfied, at least ONE course in that group must appear in the passed list returned by get_completed_courses.\n   - Check membership in the passed list ONLY. Do not use the in_progress list to determine whether a group is satisfied.\n   - A course being currently enrolled in, in progress, or awaiting a final grade does NOT satisfy a choose_one group.\n   - If even ONE choose_one group has no course in the passed list, choose_one_done must be false.\n   - Set choose_one_done to true only if EVERY choose_one group contains at least one course in the passed list.\n   - Example: If a group contains [\"MATH 230\", \"MATH 250\", \"STAT 205\"] and STAT 205 is in progress but none of the three courses appears in passed, that group is NOT satisfied.\n\nOnly use the tool results. Do not guess or invent courses.\n\nIf a tool returns an error, return missing as an empty list and choose_one_done as false.\n\nBefore returning, verify:\n    - Every course in missing appears in the required list.\n    - Every required course that is not in the passed list appears in missing.\n    - No course that appears in the passed list remains in missing.\n    - In-progress courses are treated as missing unless they also appear in the passed list.\n\nReturn the answer in the required format.\n\n",
-  "FINDER_PROMPT": "You are the section finder for the Riverview College help desk.\nYou receive a student id, one course, the sections the student is already registered for, and an avoid list of section ids. Pick ONE Spring 2027 section of that course for the student.\n\nSteps:\n1. Call check_eligibility with the student id and the course. \n    - If the status is not_eligible or already_taken, stop and return section_id as null with a reason explaining why.\n    - Continue only if the status is eligible or pending.\n2. Call find_sections with the course. \n    - Consider only sections with seats_open greater than 0.\n    - Reject any section whose section_id appears in the avoid list.\n    - If no candidates remain, return section_id as null.\n\n3. VERIFY EVERY REMAINING CANDIDATE USING schedule_conflicts.\n    - For EACH candidate, call schedule_conflicts with a list containing:\n        1. The candidate section ID.\n        2. EVERY registered section ID.\n        3. EVERY section ID in the avoid list.\n    - You MUST call schedule_conflicts whenever at least one registered or avoided section exists.\n    - Do NOT assume a candidate is conflict-free based on its meeting days or times.\n    - Do NOT select a candidate before completing its conflict check.\n    - Reject a candidate if the tool returns ANY conflict pair containing that candidate's section ID.\n    - A candidate with a conflict against an avoided section is rejected just like a candidate conflicting with a registered section.\n\n4. SELECT THE FIRST VALID CANDIDATE.\n    - A valid candidate must have open seats, must not appear in the avoid list, and must have no conflicts according to schedule_conflicts.\n    - Select the first candidate that passes all these checks.\n    - If every candidate is rejected, return section_id as null and explain that no conflict-free section is available.\n\nReturn the course code, the section id (or null), and a one-sentence reason for the student.\n\nOnly use the tool results. Do not invent section ids.\n\nNever skip a required tool call. "
+  "DEGREE_PROMPT": "You are the degree-progress specialist for the Riverview College help desk.\nYou receive a student id. Work out what the student still needs for their major.\n\nSteps:\n\n1. Call get_completed_courses with the student id.\n   - Wait for this tool to finish and read its complete result before making another tool call.\n   - It returns the student's major, courses passed, and courses in progress.\n   - Save the exact value of its \"major\" field for the next step.\n\n2. Call get_major_requirements using the major returned by get_completed_courses.\n   - This call DEPENDS on the result of get_completed_courses.\n   - NEVER call get_completed_courses and get_major_requirements at the same time or in the same parallel tool-call response.\n   - NEVER call get_major_requirements before receiving the result of get_completed_courses.\n   - Pass the exact value of the \"major\" field, such as \"Computer Science\".\n   - Do NOT pass the student id, student name, or any other value as the major.\n   - Wait for get_major_requirements to finish before calculating the answer.\n   - If get_major_requirements returns an error with error_type \"unknown_major\", you passed the wrong value. Call get_major_requirements AGAIN using the exact major field from the get_completed_courses result.\n   - If the retry also returns an error, or either tool returns another genuine error, return missing as an empty list and choose_one_done as false.\n\n3. Calculate missing:\n   - Start with every course in the required list returned by get_major_requirements.\n   - A required course is missing if it does NOT appear in the passed list returned by get_completed_courses.\n   - This includes courses that are currently in progress. Being enrolled in a course does NOT mean it has been completed or passed.\n   - Remove a course from missing ONLY when it appears in the passed list.\n   - Preserve course codes exactly as returned by the tool.\n\n4. Calculate choose_one_done:\n   - Examine each group in the choose_one list separately.\n   - For a group to be satisfied, at least ONE course in that group must appear in the passed list returned by get_completed_courses.\n   - Check membership in the passed list ONLY. Do not use the in_progress list to determine whether a group is satisfied.\n   - A course being currently enrolled in, in progress, or awaiting a final grade does NOT satisfy a choose_one group.\n   - If even ONE choose_one group has no course in the passed list, choose_one_done must be false.\n   - Set choose_one_done to true only if EVERY choose_one group contains at least one course in the passed list.\n   - Example: If a group contains [\"MATH 230\", \"MATH 250\", \"STAT 205\"] and STAT 205 is in progress but none of the three courses appears in passed, that group is NOT satisfied.\n\nOnly use the tool results. Do not guess or invent courses.\n\nBefore returning, verify:\n   - Every course in missing appears in the required list.\n   - Every required course that is not in the passed list appears in missing.\n   - No course that appears in the passed list remains in missing.\n   - In-progress courses are treated as missing unless they also appear in the passed list.\n   - choose_one_done is true only if every choose_one group has at least one course in the passed list.\n   - get_major_requirements was called with the exact major returned by get_completed_courses.\n\nReturn the answer in the required format.\n\n",
+  "FINDER_PROMPT": "You are the section finder for the Riverview College help desk.\nYou receive a student id, one course, the sections the student is already registered for, and an avoid list of section ids. Pick ONE Spring 2027 section of that course for the student.\n\nSteps:\n1. Call check_eligibility with the student id and the course. \n    - If the status is not_eligible or already_taken, stop and return section_id as null with a reason explaining why.\n    - Continue only if the status is eligible or pending.\n2. Call find_sections with the course. \n    - Consider only sections with seats_open greater than 0.\n    - Reject any section whose section_id appears in the avoid list.\n    - If no candidates remain, return section_id as null.\n\n3. VERIFY EVERY REMAINING CANDIDATE USING schedule_conflicts.\n    - Read the line \"Sections every candidate must be conflict-checked against\" in the task brief.\n    - If this line contains section IDs rather than \"none\", you MUST call schedule_conflicts for EACH remaining candidate.\n    - For each call, provide a list containing:\n        1. The candidate's section ID.\n        2. EVERY section ID from that line.\n    - You MUST complete this conflict check before selecting or returning that candidate.\n    - Reject a candidate if the tool returns ANY conflict pair containing that candidate's section ID.\n    - A candidate that conflicts with any section on that line is invalid.\n    - If the line says \"none\", there are no registered or avoided sections to check, so a conflict-checking call is not required.\n\n4. SELECT THE FIRST VALID CANDIDATE.\n    - A valid candidate must have open seats, must not appear in the avoid list, and must have no conflicts according to schedule_conflicts.\n    - Select the first candidate that passes all these checks.\n    - If every candidate is rejected, return section_id as null and explain that no conflict-free section is available.\n\nReturn the course code, the section id (or null), and a one-sentence reason for the student.\n\nOnly use the tool results. Do not invent section ids.\n\nNever skip a required tool call. "
  },
  "public_records": [
   {
@@ -45,14 +45,14 @@
      {
       "course": "MATH 220",
       "section_id": "MATH220-01",
-      "reason": "Section MATH220-01 has open seats and no registered or avoided sections to conflict with."
+      "reason": "Section MATH220-01 has open seats, no conflicts to check, and is the first available section for MATH 220."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S103\nCourse: MATH 220\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S103\nCourse: MATH 220\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
@@ -69,29 +69,29 @@
      {
       "course": "CSCI 310",
       "section_id": "CSCI310-01",
-      "reason": "Student S104 is eligible and this section has open seats with no conflicts."
+      "reason": "CSCI310-01 has open seats, no conflicts, and the student is eligible to register."
      },
      {
       "course": "ENG 101",
       "section_id": "ENG101-02",
-      "reason": "ENG101-02 has open seats, is not in the avoid list, and has no schedule conflicts with avoided or registered sections."
+      "reason": "ENG101-02 has open seats, is not in the avoid list, and has no schedule conflicts with CSCI310-01."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S104\nCourse: CSCI 310\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S104\nCourse: CSCI 310\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S104\nCourse: ENG 101\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S104\nCourse: ENG 101\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S104\nCourse: ENG 101\nRegistered sections: none\nAvoid list: CSCI310-01",
+     "brief": "Student id: S104\nCourse: ENG 101\nRegistered sections: none\nAvoid list: CSCI310-01\nSections every candidate must be conflict-checked against: CSCI310-01",
      "step": 4
     }
    ],
@@ -108,24 +108,24 @@
      {
       "course": "MATH 230",
       "section_id": "MATH230-01",
-      "reason": "The student is eligible, the section has open seats, and there are no registered or avoided sections to conflict with."
+      "reason": "Section MATH230-01 has open seats, no conflicts, and the student is eligible to enroll."
      },
      {
       "course": "CSCI 210",
       "section_id": "CSCI210-01",
-      "reason": "CSCI210-01 has open seats and no registered or avoided sections to conflict with."
+      "reason": "Section CSCI210-01 has open seats, no conflicts, and the student is eligible to enroll."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S105\nCourse: MATH 230\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S105\nCourse: MATH 230\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S105\nCourse: CSCI 210\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S105\nCourse: CSCI 210\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
@@ -148,7 +148,7 @@
      {
       "course": "CSCI 320",
       "section_id": "CSCI320-01",
-      "reason": "Section CSCI320-01 has open seats and no conflicts with registered or avoided sections."
+      "reason": "The student is eligible and the only available section has open seats and no conflicts."
      }
     ]
    },
@@ -160,7 +160,7 @@
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S106\nCourse: CSCI 320\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S106\nCourse: CSCI 320\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
@@ -185,12 +185,12 @@
      {
       "course": "MATH 230",
       "section_id": "MATH230-01",
-      "reason": "The student is eligible and the only available section has open seats and no conflicts."
+      "reason": "Section MATH230-01 has open seats, no conflicts, and the student is eligible to enroll."
      },
      {
       "course": "CSCI 340",
       "section_id": "CSCI340-01",
-      "reason": "CSCI340-01 has open seats and no registered or avoided sections to conflict with."
+      "reason": "Section CSCI340-01 has open seats, no conflicts with registered or avoided sections, and the student is eligible to enroll."
      }
     ]
    },
@@ -202,12 +202,12 @@
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S101\nCourse: MATH 230\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S101\nCourse: MATH 230\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S101\nCourse: CSCI 340\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S101\nCourse: CSCI 340\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
@@ -224,14 +224,14 @@
      {
       "course": "CSCI 340",
       "section_id": "CSCI340-01",
-      "reason": "Section CSCI340-01 has open seats and no schedule conflicts with your registered section MATH220-01."
+      "reason": "Section CSCI340-01 has open seats, no conflicts with MATH220-01, and the student is eligible to register."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S103\nCourse: CSCI 340\nRegistered sections: MATH220-01\nAvoid list: none",
+     "brief": "Student id: S103\nCourse: CSCI 340\nRegistered sections: MATH220-01\nAvoid list: none\nSections every candidate must be conflict-checked against: MATH220-01",
      "step": 2
     }
    ],
@@ -248,14 +248,14 @@
      {
       "course": "CSCI 310",
       "section_id": null,
-      "reason": "The student S107 is not eligible for CSCI 310 because they have not met the prerequisites CSCI 210 and MATH 220."
+      "reason": "The student is not eligible to take CSCI 310 because they have not met the prerequisites CSCI 210 and MATH 220."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S107\nCourse: CSCI 310\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S107\nCourse: CSCI 310\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
@@ -282,24 +282,24 @@
      {
       "course": "ENG 210",
       "section_id": "ENG210-01",
-      "reason": "ENG 210 section ENG210-01 has open seats and no registered or avoided sections to conflict with."
+      "reason": "ENG 210 section ENG210-01 has open seats, no conflicts, and the student is eligible to enroll."
      }
     ]
    },
    "calls": [
     {
      "specialist": "find_section",
-     "brief": "Student id: S101\nCourse: CSCI 330\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S101\nCourse: CSCI 330\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S101\nCourse: CSCI 350\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S101\nCourse: CSCI 350\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     },
     {
      "specialist": "find_section",
-     "brief": "Student id: S101\nCourse: ENG 210\nRegistered sections: none\nAvoid list: none",
+     "brief": "Student id: S101\nCourse: ENG 210\nRegistered sections: none\nAvoid list: none\nSections every candidate must be conflict-checked against: none",
      "step": 2
     }
    ],
